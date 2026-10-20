@@ -1,0 +1,21 @@
+name: Activate SAMS general enquiry email forwarding
+on:
+  push:
+    paths:
+      - .github/workflows/activate-sams-email.yml
+permissions:
+  contents: read
+jobs:
+  send-activation-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Submit non-sensitive activation test
+        run: |
+          curl --fail-with-body --location --max-time 45 --retry 1 \
+            --data-urlencode 'name=SAMS website form activation test' \
+            --data-urlencode 'email=sam.support.admin@gmail.com' \
+            --data-urlencode 'topic=Website form forwarding test' \
+            --data-urlencode '_subject=SAMS automatic form activation test' \
+            'https://formsubmit.co/sam.support.admin@gmail.com' \
+            --output /dev/null --write-out 'Response HTTP: %{http_code}\n'
