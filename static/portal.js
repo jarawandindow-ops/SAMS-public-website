@@ -11,7 +11,17 @@ const can=(...roles)=>profile?.active===true&&roles.includes(profile.role);
 const fmt=date=>date?new Date(date).toLocaleDateString("en-AU"):"—";
 const closeToHome=()=>location.href="index.html";
 const status=(text,bad=false)=>{message=text||"";const spot=$("#message-bar");if(spot){spot.innerHTML=message?'<div class="alert '+(bad?'alert-danger':'alert-success')+'">'+E(message)+'</div>':'';}};
-const fail=(err)=>{console.error(err);status(err?.message||"Something went wrong. Please try again.",true);};
+const fail=(err)=>{
+ console.error(err);
+ const message=String(err?.message||"Something went wrong. Please try again.");
+ if(/email address not authorized|email not allowed|not authorized to send/i.test(message)){
+   status("SAMS account confirmation email isn't available to this address yet. Your account cannot be activated until the organisation's email sender is verified.",true);
+ }else if(/redirect.*not allowed|redirect.*not permitted|redirect.*invalid/i.test(message)){
+   status("SAMS sign-in email verification needs the website address added to the organisation's authentication settings.",true);
+ }else{
+   status(message,true);
+ }
+};
 const must=(result)=>{if(result?.error)throw result.error;return result?.data;};
 const btn=(label,action,cls="btn")=>'<button type="button" class="'+E(cls)+'" data-action="'+E(action)+'">'+E(label)+'</button>';
 const title=(eyebrow,heading,sub,button="")=>'<div class="screen-header"><div><p class="eyebrow">'+E(eyebrow)+'</p><h1>'+E(heading)+'</h1><p>'+E(sub||"")+'</p></div>'+button+'</div>';
@@ -31,7 +41,7 @@ function authScreen(mode="login",error=""){
   +'<label>Email<input type="email" name="email" autocomplete="email" required></label>'
   +'<label>Password<input type="password" name="password" minlength="12" autocomplete="'+(mode==="signup"?"new-password":"current-password")+'" required></label>'
   +'<button type="submit" class="btn btn-terracotta">'+(mode==="signup"?"Create account":"Sign in securely")+'</button></form>'
-  +'<p class="fineprint">Accounts must be approved by SAMS before they can access staff features. Authenticator enrollment is required.</p>'
+  +'<p class="fineprint">Every staff account requires verified email and Microsoft Authenticator. Only accounts approved by SAMS can access internal features. If a verification email cannot be sent, contact the SAMS administration inbox; never share a password or authenticator code.</p>'
   +'<div class="row">'+btn(mode==="signup"?"Already have an account? Sign in":"New worker? Create an account","auth-toggle","btn btn-secondary")+'</div>'
   +'<div class="alert">This is a peer-support administration pilot. Do not enter client health histories, case notes or other sensitive information.</div></section>';
   $("#auth-toggle")?.addEventListener("click",()=>{});
