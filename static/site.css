@@ -7,3 +7,16 @@
 .hero-art{background:#e7bd89 url("sams-banner.avif") center center/cover no-repeat!important}
 .hero-art>*{display:none!important}
 @media(max-width:520px){.brand .official-logo{width:118px;height:62px}.footer-official-logo{width:165px;height:105px}}
+
+
+/* Final organisation-provided logo and banner, showing the complete artwork */
+.head-inner{min-height:106px}
+.brand .official-logo{width:90px;height:96px;object-fit:contain;object-position:center;mix-blend-mode:multiply}
+.footer-official-logo{width:166px;height:172px;object-fit:contain;object-position:center}
+.hero-wrap{display:block;min-height:0}
+.hero-wrap>div:first-child{max-width:780px;padding:76px 0 70px}
+.hero-art{display:none!important}
+.brand-banner{background:#f4e7d2;overflow:hidden}
+.brand-banner img{width:100%;height:auto;display:block}
+@media(max-width:820px){.head-inner{min-height:83px}.brand .official-logo{width:72px;height:76px}.hero-wrap>div:first-child{padding:57px 0 48px}}
+@media(max-width:520px){.head-inner{min-height:77px}.brand .official-logo{width:63px;height:65px}.footer-official-logo{width:140px;height:148px}}
