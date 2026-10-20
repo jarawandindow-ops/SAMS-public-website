@@ -66,6 +66,9 @@ function authScreen(mode="login",error=""){
 function authenticationPending(text){
   APP.innerHTML='<section class="auth-panel"><p class="eyebrow">Account verification</p><h1>Check your email.</h1><p>'+E(text)+'</p>'+btn("Return to sign in","back-login")+'</section>';
 }
+function invitedPasswordScreen(){
+ APP.innerHTML='<section class="auth-panel"><p class="eyebrow">FIRST STAFF LOGIN</p><h1>Create your personal SAMS password.</h1><p>You have activated your individual account. Choose a strong password before enrolling in Microsoft Authenticator. Only you should know this password.</p><div id="message-bar"></div><form class="form" data-form="invited-password"><label>New password (16 characters or more)<input type="password" name="new_password" minlength="16" maxlength="128" autocomplete="new-password" required></label><label>Confirm password<input type="password" name="confirm_password" minlength="16" maxlength="128" autocomplete="new-password" required></label><button class="btn btn-terracotta" type="submit">Save my password</button></form><div class="notice">Your assigned SAMS permissions will only activate after you also verify Microsoft Authenticator.</div>'+btn("Sign out","signout","btn btn-secondary")+'</section>';
+}
 function mfaIntro(){
   APP.innerHTML='<section class="auth-panel"><p class="eyebrow">Required second factor</p><h1>Secure your account.</h1><p>Use the free Microsoft Authenticator app. Add an <strong>Other account</strong> with the QR code. No paid Microsoft subscription is required.</p><div id="message-bar"></div>'+btn("Set up Microsoft Authenticator","mfa-enroll","btn btn-terracotta")+'<div class="alert">The staff dashboard remains locked until you verify an authenticator code.</div>'+btn("Sign out","signout","btn btn-secondary")+'</section>';
 }
@@ -97,6 +100,10 @@ async function refresh(){
   const u=must(await sb.auth.getUser())?.user;
   if(!u){authScreen(OWNER_SETUP?"signup":"login");return;}
   person=u;
+  if(String(person.email||"").toLowerCase()!==ADDRESS){
+    const pwState=await sb.rpc("sams_needs_invite_password");
+    if(!pwState.error&&pwState.data===true){invitedPasswordScreen();return;}
+  }
   const level=must(await sb.auth.mfa.getAuthenticatorAssuranceLevel());
   if(level.currentLevel!=="aal2"){
    const list=must(await sb.auth.mfa.listFactors());
@@ -122,6 +129,18 @@ async function refresh(){
        const next=new URL(location.href);next.searchParams.delete("invite");
        history.replaceState(null,"",next.pathname+next.search+next.hash);
       }catch{}
+    }
+  }
+  // The generated one-time Auth link does not depend on mail delivery. Once
+  // the invitee has set a password, confirmed the account and completed MFA,
+  // redeem their pending invitation by the verified email address.
+  const beforeClaim=await sb.from("sams_member_profiles").select("role").eq("user_id",person.id).maybeSingle();
+  if(!beforeClaim.error&&beforeClaim.data?.role==="pending"){
+    const activation=await sb.rpc("sams_redeem_my_pending_invitation");
+    if(!activation.error&&activation.data){
+      inviteNotice="Your SAMS staff invitation has been accepted.";
+      INVITE_TOKEN=null;
+      try{sessionStorage.removeItem("sams_pending_invite")}catch{}
     }
   }
   const info=must(await sb.from("sams_member_profiles").select("*").eq("user_id",person.id).maybeSingle());
@@ -309,6 +328,14 @@ async function submitted(form){
  if(button)button.disabled=true;
  try{
  if(kind==="login"||kind==="signup"){await doLogin(form,kind==="signup");return;}
+ if(kind==="invited-password"){
+   if(!person)throw Error("A verified staff activation session is required.");
+   const password=read(form,"new_password");
+   if(password.length<16)throw Error("Choose a password of at least 16 characters.");
+   if(password!==read(form,"confirm_password"))throw Error("Passwords must match.");
+   must(await sb.auth.updateUser({password}));
+   await refresh();return;
+ }
  if(kind==="mfa-enroll"||kind==="mfa-challenge"){await confirmFactor(read(form,"code"),kind==="mfa-enroll");return;}
  if(!person||!profile||!profile.active)throw Error("Sign in first.");
  if(kind==="save-page"){
