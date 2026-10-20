@@ -4,17 +4,18 @@ const sb = createClient("https://evnhavenxnxodymshwwp.supabase.co", "sb_publisha
 const APP=document.getElementById("app");
 const ADDRESS="sam.support.admin@gmail.com";
 const OWNER_SETUP=new URLSearchParams(location.search).get("setup")==="owner";
-const INVITE_TOKEN=new URLSearchParams(location.search).get("invite")||(()=>{
+let INVITE_TOKEN=new URLSearchParams(location.search).get("invite")||(()=>{
   try{return sessionStorage.getItem("sams_pending_invite");}catch{return null;}
 })();
 if(INVITE_TOKEN && /^[0-9a-f-]{36}$/i.test(INVITE_TOKEN)){
   try{sessionStorage.setItem("sams_pending_invite",INVITE_TOKEN);}catch{}
 }
-let person=null,profile=null,view="overview",mfaSetup=null,challengeFactor=null,editing=null,message="",inviteNotice="";
+let person=null,profile=null,view="overview",mfaSetup=null,challengeFactor=null,editing=null,message="",inviteNotice="",granted=new Set();
 const E=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=sel=>document.querySelector(sel);
 const read=(f,n)=>String(new FormData(f).get(n)??"").trim();
 const can=(...roles)=>profile?.active===true&&roles.includes(profile.role);
+const canUse=permission=>can("owner")||(profile?.active===true&&granted.has(permission));
 const fmt=date=>date?new Date(date).toLocaleDateString("en-AU"):"—";
 const closeToHome=()=>location.href="index.html";
 const status=(text,bad=false)=>{message=text||"";const spot=$("#message-bar");if(spot){spot.innerHTML=message?'<div class="alert '+(bad?'alert-danger':'alert-success')+'">'+E(message)+'</div>':'';}};
@@ -37,7 +38,15 @@ const tabs=[
  ["overview","Overview","All roles"],["pages","Website pages","owner"],["programs","Programs","owner"],["updates","News & updates","owner"],["tasks","Team tasks","team"],["partners","Partnerships","partners"],["team","Staff access","owner"],["audit","Activity log","owner"],["privacy","Privacy & safeguards","team"]
 ];
 const roleLabel={owner:"Owner",admin:"Website administrator",staff:"Staff",intake:"Intake officer",support:"Support worker",peer:"Peer mentor",partnerships:"Partnerships coordinator",pending:"Awaiting approval"};
-const allowedTab=t=>t==="overview"||((t==="pages"||t==="programs"||t==="updates")&&can("owner","admin"))||(t==="team"&&can("owner"))||(t==="tasks"||t==="privacy")&&can("owner","admin","staff","intake","support","peer","partnerships")||(t==="partners"&&can("owner","admin","partnerships"))||(t==="audit"&&can("owner"));
+const allowedTab=t=>t==="overview"||
+(t==="pages"&&canUse("website_edit"))||
+(t==="programs"&&canUse("programs_manage"))||
+(t==="updates"&&canUse("updates_manage"))||
+(t==="team"&&can("owner"))||
+(t==="tasks"&&can("owner","admin","staff","intake","support","peer","partnerships"))||
+(t==="privacy"&&can("owner","admin","staff","intake","support","peer","partnerships"))||
+(t==="partners"&&canUse("partners_manage"))||
+(t==="audit"&&can("owner"));
 function authScreen(mode="login",error=""){
   person=null;profile=null;
   const ownerMode=OWNER_SETUP;
@@ -107,6 +116,7 @@ async function refresh(){
     if(accepted.error){inviteNotice="Invitation could not be activated: "+accepted.error.message;}
     else{
       inviteNotice="Your invitation has been accepted and the chosen SAMS role is now active.";
+      INVITE_TOKEN=null;
       try{sessionStorage.removeItem("sams_pending_invite")}catch{}
       try{
        const next=new URL(location.href);next.searchParams.delete("invite");
@@ -116,6 +126,8 @@ async function refresh(){
   }
   const info=must(await sb.from("sams_member_profiles").select("*").eq("user_id",person.id).maybeSingle());
   profile=info;
+  const resultGrants=await sb.from("sams_permission_grants").select("permission").eq("user_id",person.id);
+  granted=new Set(resultGrants.error?[]:(resultGrants.data||[]).map(x=>x.permission));
   if(!profile){
     APP.innerHTML='<section class="auth-panel"><h1>Account approval pending.</h1><p>Your account exists but the SAMS team profile is not yet available. Please sign in again after a few minutes.</p>'+btn("Sign out","signout")+'</section>';
     return;
@@ -185,7 +197,7 @@ async function overview(){
  const active=profile.role!=="pending";
  panel(title("SAMS INTERNAL WORKSPACE","Wominjeka, "+(profile.display_name||"welcome").split(" ")[0]+".","Your role: "+(roleLabel[profile.role]||profile.role))+(inviteNotice?'<div class="alert '+(inviteNotice.startsWith("Invitation could")?'alert-danger':'alert-success')+'">'+E(inviteNotice)+'</div>':'')
  +'<div class="stats"><div class="stat"><strong>01</strong><span>Connected community</span></div><div class="stat"><strong>24/7</strong><span>13YARN available for crisis support</span></div><div class="stat"><strong>0</strong><span>Client files held in this pilot</span></div></div>'
- +(active?'<div class="panel"><h3>Your team workspace</h3><p>SAMS provides peer connection and service navigation. Choose a section from the menu to manage information appropriate to your position. This platform does not provide treatment or clinical advice.</p><div class="actions">'+(can("owner","admin")?btn("Edit website","go-pages","btn"):'')+btn("View team tasks","go-tasks","btn btn-secondary")+'</div></div>':'<div class="notice"><strong>Awaiting SAMS approval.</strong> You have securely verified your account using Microsoft Authenticator. Your organisation must assign you a role before you can see internal sections.</div>')
+ +(active?'<div class="panel"><h3>Your team workspace</h3><p>SAMS provides peer connection and service navigation. Choose a section from the menu to manage information appropriate to your position. This platform does not provide treatment or clinical advice.</p><div class="actions">'+(canUse("website_edit")?btn("Edit website","go-pages","btn"):'')+btn("View team tasks","go-tasks","btn btn-secondary")+'</div></div>':'<div class="notice"><strong>Awaiting SAMS approval.</strong> You have securely verified your account using Microsoft Authenticator. Your organisation must assign you a role before you can see internal sections.</div>')
  +'<div class="notice"><strong>Private client records are disabled.</strong> Do not enter substance-use histories, family details, medical information, or case notes into tasks, partner contacts, or website content. For urgent needs call 000, 13YARN on 13 92 76, or DirectLine on 1800 888 236.</div>');
 }
 async function pages(){
