@@ -201,7 +201,7 @@ async function overview(){
  +'<div class="notice"><strong>Private client records are disabled.</strong> Do not enter substance-use histories, family details, medical information, or case notes into tasks, partner contacts, or website content. For urgent needs call 000, 13YARN on 13 92 76, or DirectLine on 1800 888 236.</div>');
 }
 async function pages(){
- if(!can("owner","admin"))return;
+ if(!canUse("website_edit"))return;
  const data=must(await sb.from("sams_public_pages").select("*").order("slug"));
  if(editing?.section==="pages"){
   const item=data.find(x=>x.slug===editing.id);
@@ -215,7 +215,7 @@ async function pages(){
 }
 const progOptions=["In development","Open","Paused","Completed"];
 async function programs(){
- if(!can("owner","admin"))return;
+ if(!canUse("programs_manage"))return;
  const list=must(await sb.from("sams_programs").select("*").order("sort_order"));
  if(editing?.section==="programs"){
   const item=editing.id?list.find(x=>String(x.id)===String(editing.id)):null;
@@ -227,7 +227,7 @@ async function programs(){
  +'<div class="stack">'+list.map(x=>'<article class="entry"><div><span class="badge">'+E(x.status)+'</span><h3>'+E(x.name)+'</h3><p>'+E(x.description)+'</p><small>'+ (x.published?"Publicly visible":"Not published")+'</small></div><div>'+btn("Edit","edit-program:"+x.id,"btn btn-secondary btn-small")+'</div></article>').join("")+'</div>');
 }
 async function updates(){
- if(!can("owner","admin"))return;
+ if(!canUse("updates_manage"))return;
  const list=must(await sb.from("sams_posts").select("*").order("created_at",{ascending:false}));
  if(editing?.section==="updates"){
  const item=editing.id?list.find(x=>String(x.id)===String(editing.id)):null;
@@ -312,31 +312,31 @@ async function submitted(form){
  if(kind==="mfa-enroll"||kind==="mfa-challenge"){await confirmFactor(read(form,"code"),kind==="mfa-enroll");return;}
  if(!person||!profile||!profile.active)throw Error("Sign in first.");
  if(kind==="save-page"){
-  if(!can("owner","admin"))throw Error("Not authorised.");
+  if(!canUse("website_edit"))throw Error("Not authorised.");
   must(await sb.from("sams_public_pages").update({title:read(form,"title"),heading:read(form,"heading"),summary:read(form,"summary"),body:read(form,"body"),updated_at:new Date().toISOString()}).eq("slug",form.dataset.id));
   editing=null;await pages();status("Page saved. Public website content will update for visitors when they reload.");return;
  }
  if(kind==="save-program"){
-  if(!can("owner","admin"))throw Error("Not authorised.");
+  if(!canUse("programs_manage"))throw Error("Not authorised.");
   const data={name:read(form,"name"),description:read(form,"description"),status:read(form,"status"),published:new FormData(form).has("published"),sort_order:Number(read(form,"sort_order"))||0};
   if(form.dataset.id)must(await sb.from("sams_programs").update(data).eq("id",Number(form.dataset.id)));
   else must(await sb.from("sams_programs").insert(data));
   editing=null;await programs();status("Program details saved.");return;
  }
  if(kind==="save-post"){
-  if(!can("owner","admin"))throw Error("Not authorised.");
+  if(!canUse("updates_manage"))throw Error("Not authorised.");
   const data={title:read(form,"title"),body:read(form,"body"),published:new FormData(form).has("published")};
   if(form.dataset.id)must(await sb.from("sams_posts").update(data).eq("id",Number(form.dataset.id)));
   else must(await sb.from("sams_posts").insert(data));
   editing=null;await updates();status("Announcement saved.");return;
  }
  if(kind==="new-task"){
-  if(!can("owner","admin"))throw Error("Not authorised.");
+  if(!canUse("team_tasks_manage"))throw Error("Not authorised.");
   must(await sb.from("sams_staff_tasks").insert({title:read(form,"title"),assigned_to:read(form,"assigned_to"),due_date:read(form,"due_date")||null,created_by:person.id}));
   await tasks();status("Task assigned.");return;
  }
  if(kind==="new-partner"){
-  if(!can("owner","admin","partnerships"))throw Error("Not authorised.");
+  if(!canUse("partners_manage"))throw Error("Not authorised.");
   const data={organisation:read(form,"organisation"),contact_name:read(form,"contact_name"),general_email:read(form,"general_email"),public_phone:read(form,"public_phone"),notes:read(form,"notes")};
   must(await sb.from("sams_partner_contacts").insert(data));
   await partners();status("Organisational contact saved.");return;
