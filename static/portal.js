@@ -67,6 +67,18 @@ function mfaEnrollScreen(data){
 }
 async function refresh(){
  try{
+  // getUser() throws AuthSessionMissingError before anyone has signed up.
+  // Check for an existing session first so first-time registration is possible.
+  const sessionResult=await sb.auth.getSession();
+  if(sessionResult.error){
+    if(/auth session missing|session missing/i.test(String(sessionResult.error.message||""))){
+      authScreen(OWNER_SETUP?"signup":"login");return;
+    }
+    throw sessionResult.error;
+  }
+  if(!sessionResult.data?.session){
+    authScreen(OWNER_SETUP?"signup":"login");return;
+  }
   const u=must(await sb.auth.getUser())?.user;
   if(!u){authScreen(OWNER_SETUP?"signup":"login");return;}
   person=u;
@@ -96,7 +108,13 @@ async function refresh(){
   }
   if(!allowedTab(view))view="overview";
   await draw();
- }catch(err){console.error(err);authScreen("login","Unable to complete secure sign-in: "+(err.message||"Try again."));}
+ }catch(err){
+  console.error(err);
+  if(/auth session missing|session missing/i.test(String(err?.message||""))){
+    authScreen(OWNER_SETUP?"signup":"login");return;
+  }
+  authScreen(OWNER_SETUP?"signup":"login","Unable to complete secure sign-in: "+(err.message||"Try again."));
+ }
 }
 async function doLogin(form,signup=false){
  const email=read(form,"email").toLowerCase(),password=read(form,"password");
