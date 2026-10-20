@@ -1,26 +1,29 @@
-# SAMS website forms and email safeguards
-**Operational pilot settings · 20 October 2026**
+# SAMS website email and form controls
 
-## Administrative inbox
-sam.support.admin@gmail.com is the intended recipient of general, non-sensitive public enquiries, expressions of interest and partnership messages.
+**Updated 20 October 2026 — operational setup pending recipient activation**
 
-## Current live pilot
-- General enquiry, volunteer and partnership forms prepare pre-addressed drafts in the visitor's **own email app**.
-- The visitor must press **Send**. No message is sent merely by clicking a website button.
-- Only non-sensitive contact information and a selected enquiry topic are included in those drafts.
-- The website does not silently store public submissions, medical histories or case notes.
-- Where no email program is configured, visitors can email the SAMS address directly.
-- A secure server-to-email delivery system is **not configured** and must not be advertised as working.
+## Recipient
+The intended inbox for non-sensitive organisational enquiries is sam.support.admin@gmail.com.
 
-## Production requirements for automatic sending
-1. An organisation-controlled sender and authorised email API/SMTP account.
-2. Environment-managed credentials (never committed to GitHub or included in HTML).
-3. Sender authentication (SPF, DKIM and preferably DMARC for a custom sender domain).
-4. Server-side input validation, origin and CSRF controls as applicable, honeypot/rate limiting and abuse monitoring.
-5. Consent and purpose-specific privacy notice; minimal non-sensitive information only.
-6. No identifiable health narratives or sensitive documents sent to the general Gmail inbox.
-7. Separate secured CRM handling for any confidential support request, including authorised access, notifications without client details, audit trails and tested incident response.
-8. Test message delivery, spam handling, bounced messages and outages before stating that submissions are received.
+## Website forms
+- Contact, volunteering and partnership forms use FormSubmit to forward messages to the administration inbox.
+- Forms collect only name, reply email, and a general topic, area of interest or organisation name. No open narrative message field is offered.
+- Users are informed that FormSubmit is an external data processor and must consent before submitting.
+- FormSubmit advertises 30-day form submission retention. SAMS's privacy notice discloses this.
+- Forms have a hidden spam honeypot field, and FormSubmit's standard anti-spam protections remain enabled.
+- A submission redirects to a processing acknowledgement; that page is not proof of inbox delivery.
+- FormSubmit requires one test submission followed by confirming the recipient email. Delivery is not considered operational until an actual test is received in the SAMS inbox.
+- Forms are intended only for general administrative enquiries. No client intake, health details, case histories or support referrals may be submitted.
 
-## Incident handling
-If confidential information is sent unexpectedly, restrict onward distribution, use approved safeguarding and retention/secure-deletion procedures, record the event privately and escalate to the privacy lead. Do not expose raw submissions to website owners solely by virtue of website-edit permissions.
+## Staff verification emails
+- Staff authentication uses Supabase Auth with verified email, password and TOTP second-factor verification compatible with Microsoft Authenticator.
+- The Supabase project must be configured with the live SAMS Site URL and staff portal redirect.
+- Custom SMTP credentials must be configured in the Supabase Authentication dashboard; no credentials are stored in the public repository.
+- Test confirmation and password recovery for an actual authorised account. Until tested, staff email delivery remains unverified.
+- Never disable email verification merely to bypass onboarding problems.
+
+## For future secure client support
+Use a separate, reviewed client intake workflow with appropriate privacy collection notice, consent, staff case-specific permissions, encrypted storage, monitoring, defined retention and tested backups. Do not forward confidential client records into ordinary Gmail or FormSubmit.
+
+Official FormSubmit documentation: https://formsubmit.co/documentation
+Supabase SMTP documentation: https://supabase.com/docs/guides/auth/auth-smtp
