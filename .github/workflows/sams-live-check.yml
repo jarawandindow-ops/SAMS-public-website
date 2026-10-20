@@ -21,3 +21,14 @@ jobs:
             echo "$file => HTTP $code"
             test "$code" = "200"
           done
+      - name: Verify invitation activation rejects unauthenticated requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS --max-time 35 --output /dev/null --write-out '%{http_code}' \
+            -X POST "https://evnhavenxnxodymshwwp.supabase.co/functions/v1/sams-create-staff-activation" \
+            -H "Origin: https://sams-public-website.onrender.com" \
+            -H "Content-Type: application/json" \
+            --data '{"invitation_id":"00000000-0000-0000-0000-000000000000"}')
+          echo "Unsigned activation request => HTTP $code"
+          test "$code" = "401" -o "$code" = "403"
