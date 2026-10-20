@@ -1,0 +1,23 @@
+name: SAMS live website checks
+on:
+  push:
+    paths:
+      - .github/workflows/sams-live-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify website, staff portal and enquiry form pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://sams-public-website.onrender.com"
+          for file in index.html portal.html contact.html get-involved.html privacy.html enquiry-received.html static/portal.js static/live-content.js static/site.css; do
+            code=$(curl --silent --location --retry 4 --retry-delay 5 --max-time 35 --output /dev/null --write-out '%{http_code}' "$BASE/$file")
+            echo "$file => HTTP $code"
+            test "$code" = "200"
+          done
