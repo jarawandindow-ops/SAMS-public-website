@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
 const sb = createClient("https://evnhavenxnxodymshwwp.supabase.co", "sb_publishable_9THXjlJqCrGrinDeUkEs3A_F-nbugRF", {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const APP=document.getElementById("app");
 const ADDRESS="sam.support.admin@gmail.com";
+const OWNER_SETUP=new URLSearchParams(location.search).get("setup")==="owner";
 let person=null,profile=null,view="overview",mfaSetup=null,challengeFactor=null,editing=null,message="";
 const E=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=sel=>document.querySelector(sel);
@@ -33,16 +34,17 @@ const roleLabel={owner:"Owner",admin:"Website administrator",staff:"Staff",intak
 const allowedTab=t=>t==="overview"||((t==="pages"||t==="programs"||t==="updates")&&can("owner","admin"))||(t==="team"&&can("owner"))||(t==="tasks"||t==="privacy")&&can("owner","admin","staff","intake","support","peer","partnerships")||(t==="partners"&&can("owner","admin","partnerships"))||(t==="audit"&&can("owner"));
 function authScreen(mode="login",error=""){
   person=null;profile=null;
-  APP.innerHTML='<section class="auth-panel"><p class="eyebrow">Private SAMS workspace</p><h1>Welcome to SAMS.</h1><p class="intro">Secure sign-in for SAMS committee members, volunteers and staff. You will also need Microsoft Authenticator on your phone.</p>'
+  const ownerMode=OWNER_SETUP;
+  APP.innerHTML='<section class="auth-panel"><p class="eyebrow">'+(ownerMode?'SAMS · Verified owner setup':'Private SAMS workspace')+'</p><h1>'+(ownerMode?'Set up your SAMS owner account.':'Welcome to SAMS.')+'</h1><p class="intro">'+(ownerMode?'The owner account is reserved for the verified SAMS administration email. Create your own private password, verify the email, and connect Microsoft Authenticator. Owner privileges are issued only after both checks succeed.':'Secure sign-in for SAMS committee members, volunteers and staff. You will also need Microsoft Authenticator on your phone.')+'</p>'
   +(error?'<div class="alert alert-danger">'+E(error)+'</div>':"")
   +'<div id="message-bar"></div>'
   +'<form id="sign-form" class="form" data-form="'+mode+'">'
-  +(mode==="signup"?'<label>Full name<input name="full_name" autocomplete="name" required maxlength="100"></label>':"")
-  +'<label>Email<input type="email" name="email" autocomplete="email" required></label>'
+  +(mode==="signup"?'<label>Full name<input name="full_name" autocomplete="name" required maxlength="100" '+(ownerMode?'value="SAMS Administrator"':'')+'></label>':"")
+  +'<label>Email<input type="email" name="email" autocomplete="email" required '+(ownerMode?'readonly value="'+E(ADDRESS)+'"':'')+'></label>'
   +'<label>Password<input type="password" name="password" minlength="12" autocomplete="'+(mode==="signup"?"new-password":"current-password")+'" required></label>'
   +'<button type="submit" class="btn btn-terracotta">'+(mode==="signup"?"Create account":"Sign in securely")+'</button></form>'
-  +'<p class="fineprint">Every staff account requires verified email and Microsoft Authenticator. Only accounts approved by SAMS can access internal features. If a verification email cannot be sent, contact the SAMS administration inbox; never share a password or authenticator code.</p>'
-  +'<div class="row">'+btn(mode==="signup"?"Already have an account? Sign in":"New worker? Create an account","auth-toggle","btn btn-secondary")+'</div>'
+  +'<p class="fineprint">'+(ownerMode?'Use a new password you have not shared anywhere else. SAMS will never ask you to send it by email or chat. The owner role is not available until email and six-digit Authenticator verification both pass.':'Every staff account requires verified email and Microsoft Authenticator. Only accounts approved by SAMS can access internal features. If a verification email cannot be sent, contact the SAMS administration inbox; never share a password or authenticator code.')+'</p>'
+  +'<div class="row">'+btn(mode==="signup"?"Already have an account? Sign in":(ownerMode?"New owner? Create account":"New worker? Create an account"),"auth-toggle","btn btn-secondary")+'</div>'
   +'<div class="alert">This is a peer-support administration pilot. Do not enter client health histories, case notes or other sensitive information.</div></section>';
   $("#auth-toggle")?.addEventListener("click",()=>{});
 }
@@ -66,7 +68,7 @@ function mfaEnrollScreen(data){
 async function refresh(){
  try{
   const u=must(await sb.auth.getUser())?.user;
-  if(!u){authScreen();return;}
+  if(!u){authScreen(OWNER_SETUP?"signup":"login");return;}
   person=u;
   const level=must(await sb.auth.mfa.getAuthenticatorAssuranceLevel());
   if(level.currentLevel!=="aal2"){
@@ -79,7 +81,7 @@ async function refresh(){
    const current=await sb.from("sams_member_profiles").select("role").eq("user_id",person.id).maybeSingle();
    if(!current.error&&current.data?.role==="pending"){
      const grant=await sb.rpc("sams_claim_owner");
-     if(grant.error)console.warn("Verified account requires role review",grant.error.message);
+     if(grant.error){console.warn("Verified account requires role review",grant.error.message);message="Owner permission not yet active. Check that the email is verified and your Authenticator code was accepted.";}
    }
   }
   const info=must(await sb.from("sams_member_profiles").select("*").eq("user_id",person.id).maybeSingle());
