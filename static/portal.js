@@ -17,10 +17,10 @@ const btn=(label,action,cls="btn")=>'<button type="button" class="'+E(cls)+'" da
 const title=(eyebrow,heading,sub,button="")=>'<div class="screen-header"><div><p class="eyebrow">'+E(eyebrow)+'</p><h1>'+E(heading)+'</h1><p>'+E(sub||"")+'</p></div>'+button+'</div>';
 const empty=text=>'<div class="empty">'+E(text)+'</div>';
 const tabs=[
- ["overview","Overview","All roles"],["pages","Website pages","owner"],["programs","Programs","owner"],["updates","News & updates","owner"],["tasks","Team tasks","team"],["partners","Partnerships","partners"],["team","Staff access","owner"],["privacy","Privacy & safeguards","team"]
+ ["overview","Overview","All roles"],["pages","Website pages","owner"],["programs","Programs","owner"],["updates","News & updates","owner"],["tasks","Team tasks","team"],["partners","Partnerships","partners"],["team","Staff access","owner"],["audit","Activity log","owner"],["privacy","Privacy & safeguards","team"]
 ];
 const roleLabel={owner:"Owner",admin:"Website administrator",staff:"Staff",intake:"Intake officer",support:"Support worker",peer:"Peer mentor",partnerships:"Partnerships coordinator",pending:"Awaiting approval"};
-const allowedTab=t=>t==="overview"||((t==="pages"||t==="programs"||t==="updates")&&can("owner","admin"))||(t==="team"&&can("owner"))||(t==="tasks"||t==="privacy")&&can("owner","admin","staff","intake","support","peer","partnerships")||(t==="partners"&&can("owner","admin","partnerships"));
+const allowedTab=t=>t==="overview"||((t==="pages"||t==="programs"||t==="updates")&&can("owner","admin"))||(t==="team"&&can("owner"))||(t==="tasks"||t==="privacy")&&can("owner","admin","staff","intake","support","peer","partnerships")||(t==="partners"&&can("owner","admin","partnerships"))||(t==="audit"&&can("owner"));
 function authScreen(mode="login",error=""){
   person=null;profile=null;
   APP.innerHTML='<section class="auth-panel"><p class="eyebrow">Private SAMS workspace</p><h1>Welcome to SAMS.</h1><p class="intro">Secure sign-in for SAMS committee members, volunteers and staff. You will also need Microsoft Authenticator on your phone.</p>'
@@ -129,6 +129,7 @@ async function draw(){
  if(view==="tasks")await tasks();
  if(view==="partners")await partners();
  if(view==="team")await team();
+ if(view==="audit")await audit();
  if(view==="privacy")await privacy();
  }catch(err){fail(err);panel(empty("The section could not be loaded. Try again shortly."));}
 }
@@ -200,6 +201,17 @@ async function team(){
  panel(title("TEAM ACCESS","Staff & permissions","Accounts are created by staff using the sign-up form. You approve their roles here.")
  +'<div class="notice"><strong>Privacy boundary:</strong> SAMS website owners and staff do not have access to confidential client case files in this pilot. All users must verify Microsoft Authenticator before performing protected actions.</div>'
  +'<div class="table-wrap"><table><thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Change access</th></tr></thead><tbody>'+list.map(x=>'<tr><td><strong>'+E(x.display_name||"Staff member")+'</strong><br><small>'+E(x.user_id.slice(0,8))+'…</small></td><td><span class="badge">'+E(roleLabel[x.role]||x.role)+'</span></td><td>'+ (x.active?"Enabled":"Suspended")+'</td><td>'+(x.role==="owner"?'<small>Protected owner account</small>':'<form class="form" data-form="member-access" data-id="'+E(x.user_id)+'"><label>Role<select name="role">'+["pending","owner","admin","staff","intake","support","peer","partnerships"].map(v=>'<option value="'+v+'" '+(x.role===v?"selected":"")+'>'+E(roleLabel[v])+'</option>').join("")+'</select></label><label><input name="active" type="checkbox" '+(x.active?"checked":"")+'> Enabled</label><button class="btn btn-small">Save access</button></form>')+'</td></tr>').join("")+'</tbody></table></div>');
+}
+
+async function audit(){
+ if(!can("owner"))return;
+ const events=must(await sb.rpc("sams_recent_audit_events"));
+ const names={sams_member_profiles:"Staff account",sams_public_pages:"Website page",sams_programs:"Program",sams_posts:"Announcement",sams_staff_tasks:"Team task",sams_partner_contacts:"Organisation contact"};
+ panel(title("ADMINISTRATION OVERSIGHT","Activity log","The latest 100 recorded changes to organisational content and staff roles. Client records are never included.")
+  +'<div class="notice"><strong>Privacy by design:</strong> the activity log records which administrative record changed and when. It does not include message text, participant details or health information.</div>'
+  +'<div class="table-wrap"><table><thead><tr><th>When</th><th>Area</th><th>Action</th><th>Reference</th><th>Staff role</th></tr></thead><tbody>'
+  +(events.length?events.map(e=>'<tr><td>'+E(new Date(e.event_time).toLocaleString("en-AU"))+'</td><td>'+E(names[e.table_name]||e.table_name)+'</td><td>'+E(e.operation)+'</td><td>'+E(e.record_reference||"—")+'</td><td>'+E(e.actor_role||"System")+'</td></tr>').join(""):'<tr><td colspan="5">No changes have been recorded yet.</td></tr>')
+  +'</tbody></table></div>');
 }
 async function privacy(){
  panel(title("PEER SUPPORT, NOT CLINICAL TREATMENT","Privacy and safeguards","The SAMS pilot separates operational work from confidential records.")
