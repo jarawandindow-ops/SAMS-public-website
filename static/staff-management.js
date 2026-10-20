@@ -6,6 +6,19 @@ const E=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt
 const V=(f,name)=>String(new FormData(f).get(name)??"").trim();
 const must=result=>{if(result.error)throw result.error;return result.data;};
 const base="https://sams-public-website.onrender.com";
+const temporaryLinks=new Map();
+async function getSecureActivationLink(inv){
+ if(temporaryLinks.has(inv.id))return temporaryLinks.get(inv.id);
+ const response=await sb.functions.invoke("sams-create-staff-activation",{body:{invitation_id:inv.id}});
+ if(response.error||!response.data?.activation_url){
+  // An account already registered with Supabase can accept a role invitation after sign-in.
+  const detail=String(response.error?.message||response.data?.error||"Unable to generate activation link");
+  throw new Error(detail+" If the account already exists, use the ordinary invitation URL: "+inviteLink(inv));
+ }
+ temporaryLinks.set(inv.id,response.data.activation_url);
+ return response.data.activation_url;
+}
+
 const roles=[["admin","Website administrator"],["staff","Staff member"],["intake","Intake officer"],["support","Support worker"],["peer","Peer mentor"],["partnerships","Partnerships coordinator"]];
 const types=[["committee","Committee"],["employee","Employee"],["volunteer","Volunteer"],["contractor","Contractor"]];
 const permissions=[
@@ -51,7 +64,7 @@ function inviteEntry(inv){
  let canShare=label==="Awaiting acceptance";
  return '<article class="staff-entry"><div class="row between"><div><strong class="no-break">'+E(inv.email)+'</strong><p>'+E(inv.role)+' · '+E(inv.account_type)+' · '+new Date(inv.created_at).toLocaleDateString("en-AU")+'</p></div>'+badge(label)+'</div>'
  +'<div class="chip-set">'+(inv.permissions?.length?inv.permissions.map(x=>badge(permissions.find(v=>v[0]===x)?.[1]||x)).join(""):'<small>No additional access selected</small>')+'</div>'
- +(canShare?'<div class="actions"><button class="btn btn-small btn-secondary" data-action="copy-invite" data-id="'+E(inv.id)+'">Copy invitation link</button><button class="btn btn-small" data-action="email-invite" data-id="'+E(inv.id)+'">Prepare invitation email</button><button class="btn btn-small btn-danger" data-action="revoke-invite" data-id="'+E(inv.id)+'">Revoke</button></div>':'')
+ +(canShare?'<div class="actions"><button class="btn btn-small btn-secondary" data-action="copy-invite" data-id="'+E(inv.id)+'">Create activation link</button><button class="btn btn-small" data-action="email-invite" data-id="'+E(inv.id)+'">Prepare invitation email</button><button class="btn btn-small btn-danger" data-action="revoke-invite" data-id="'+E(inv.id)+'">Revoke</button></div>':'')
  +'</article>';
 }
 function personEntry(p){
@@ -102,20 +115,22 @@ async function load(){
  people=must(b)||[];
  screen();
 }
-function inviteMessage(inv){
- return "Hello,\n\nYou are invited to join the SAMS staff portal as "+(roles.find(x=>x[0]===inv.role)?.[1]||inv.role)+".\n\nOpen this SAMS invitation link:\n"+inviteLink(inv)+"\n\nSign in or register with your invited email address, then verify your email and set up Microsoft Authenticator. The invitation does not contain a password.\n\nThis invitation expires on "+new Date(inv.expires_at).toLocaleDateString("en-AU")+".\n\nSAMS — Substance Affected Mob Support";
+function inviteMessage(inv,activationUrl){
+ return "Hello,\n\nYou are invited to join the SAMS staff portal as "+(roles.find(x=>x[0]===inv.role)?.[1]||inv.role)+".\n\nOpen this SAMS invitation link:\n"+activationUrl+"\n\nSign in or register with your invited email address, then verify your email and set up Microsoft Authenticator. Set your own private password during activation. Never share this one-time link or your Authenticator code with anyone else.\n\nThis invitation expires on "+new Date(inv.expires_at).toLocaleDateString("en-AU")+".\n\nSAMS — Substance Affected Mob Support";
 }
 async function click(name,id){
  if(name==="copy-invite"){
    const inv=invites.find(v=>v.id===id);
    if(!inv)return;
-   try{await navigator.clipboard.writeText(inviteLink(inv));tell("Invitation link copied.");}
+   const url=await getSecureActivationLink(inv);
+   try{await navigator.clipboard.writeText(url);tell("One-time activation link copied. Share privately with the intended worker only.");}
    catch{tell("Your browser blocked clipboard access. Use Prepare invitation email instead.",true);}
  } else if(name==="email-invite"){
    const inv=invites.find(v=>v.id===id);
    if(!inv)return;
    const subject="SAMS staff invitation";
-   const link="mailto:"+encodeURIComponent(inv.email)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(inviteMessage(inv));
+   const secureUrl=await getSecureActivationLink(inv);
+   const link="mailto:"+encodeURIComponent(inv.email)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(inviteMessage(inv,secureUrl));
    window.location.href=link;
  } else if(name==="revoke-invite"){
    if(!confirm("Revoke this invitation? The old link will stop working."))return;
@@ -134,7 +149,7 @@ async function submit(form){
    const result=await sb.rpc("sams_create_invitation",{p_email:email,p_role:role,p_account_type:account,p_permissions:requested});
    must(result);
    await load();
-   tell("Invitation created. Choose Prepare invitation email, or copy the link to send it yourself.");
+   tell("Invitation saved. Choose Create activation link or Prepare invitation email to generate a secure one-time account link.");
  } else if(mode==="edit-member"){
    const id=form.dataset.id,role=V(form,"role"),account=V(form,"account_type"),active=new FormData(form).has("active");
    const selectedPermissions=selected(form);
