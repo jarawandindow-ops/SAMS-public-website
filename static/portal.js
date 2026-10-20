@@ -4,7 +4,13 @@ const sb = createClient("https://evnhavenxnxodymshwwp.supabase.co", "sb_publisha
 const APP=document.getElementById("app");
 const ADDRESS="sam.support.admin@gmail.com";
 const OWNER_SETUP=new URLSearchParams(location.search).get("setup")==="owner";
-let person=null,profile=null,view="overview",mfaSetup=null,challengeFactor=null,editing=null,message="";
+const INVITE_TOKEN=new URLSearchParams(location.search).get("invite")||(()=>{
+  try{return sessionStorage.getItem("sams_pending_invite");}catch{return null;}
+})();
+if(INVITE_TOKEN && /^[0-9a-f-]{36}$/i.test(INVITE_TOKEN)){
+  try{sessionStorage.setItem("sams_pending_invite",INVITE_TOKEN);}catch{}
+}
+let person=null,profile=null,view="overview",mfaSetup=null,challengeFactor=null,editing=null,message="",inviteNotice="";
 const E=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=sel=>document.querySelector(sel);
 const read=(f,n)=>String(new FormData(f).get(n)??"").trim();
@@ -96,6 +102,18 @@ async function refresh(){
      if(grant.error){console.warn("Verified account requires role review",grant.error.message);message="Owner permission not yet active. Check that the email is verified and your Authenticator code was accepted.";}
    }
   }
+  if(INVITE_TOKEN&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(INVITE_TOKEN)){
+    const accepted=await sb.rpc("sams_redeem_invitation",{p_invitation:INVITE_TOKEN});
+    if(accepted.error){inviteNotice="Invitation could not be activated: "+accepted.error.message;}
+    else{
+      inviteNotice="Your invitation has been accepted and the chosen SAMS role is now active.";
+      try{sessionStorage.removeItem("sams_pending_invite")}catch{}
+      try{
+       const next=new URL(location.href);next.searchParams.delete("invite");
+       history.replaceState(null,"",next.pathname+next.search+next.hash);
+      }catch{}
+    }
+  }
   const info=must(await sb.from("sams_member_profiles").select("*").eq("user_id",person.id).maybeSingle());
   profile=info;
   if(!profile){
@@ -165,7 +183,7 @@ async function draw(){
 }
 async function overview(){
  const active=profile.role!=="pending";
- panel(title("SAMS INTERNAL WORKSPACE","Wominjeka, "+(profile.display_name||"welcome").split(" ")[0]+".","Your role: "+(roleLabel[profile.role]||profile.role))
+ panel(title("SAMS INTERNAL WORKSPACE","Wominjeka, "+(profile.display_name||"welcome").split(" ")[0]+".","Your role: "+(roleLabel[profile.role]||profile.role))+(inviteNotice?'<div class="alert '+(inviteNotice.startsWith("Invitation could")?'alert-danger':'alert-success')+'">'+E(inviteNotice)+'</div>':'')
  +'<div class="stats"><div class="stat"><strong>01</strong><span>Connected community</span></div><div class="stat"><strong>24/7</strong><span>13YARN available for crisis support</span></div><div class="stat"><strong>0</strong><span>Client files held in this pilot</span></div></div>'
  +(active?'<div class="panel"><h3>Your team workspace</h3><p>SAMS provides peer connection and service navigation. Choose a section from the menu to manage information appropriate to your position. This platform does not provide treatment or clinical advice.</p><div class="actions">'+(can("owner","admin")?btn("Edit website","go-pages","btn"):'')+btn("View team tasks","go-tasks","btn btn-secondary")+'</div></div>':'<div class="notice"><strong>Awaiting SAMS approval.</strong> You have securely verified your account using Microsoft Authenticator. Your organisation must assign you a role before you can see internal sections.</div>')
  +'<div class="notice"><strong>Private client records are disabled.</strong> Do not enter substance-use histories, family details, medical information, or case notes into tasks, partner contacts, or website content. For urgent needs call 000, 13YARN on 13 92 76, or DirectLine on 1800 888 236.</div>');
