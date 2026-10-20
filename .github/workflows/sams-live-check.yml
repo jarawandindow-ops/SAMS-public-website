@@ -16,7 +16,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://sams-public-website.onrender.com"
-          for file in index.html portal.html contact.html get-involved.html privacy.html enquiry-received.html static/portal.js static/live-content.js static/site.css; do
+          for file in index.html portal.html contact.html get-involved.html privacy.html enquiry-received.html static/portal.js static/live-content.js static/site.css staff-management.html static/staff-management.js static/staff-management.css; do
             code=$(curl --silent --location --retry 4 --retry-delay 5 --max-time 35 --output /dev/null --write-out '%{http_code}' "$BASE/$file")
             echo "$file => HTTP $code"
             test "$code" = "200"
