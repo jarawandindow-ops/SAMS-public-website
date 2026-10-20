@@ -227,12 +227,10 @@ async function partners(){
 }
 async function team(){
  if(!can("owner"))return;
- const list=must(await sb.from("sams_member_profiles").select("*").order("created_at",{ascending:false}));
- panel(title("TEAM ACCESS","Staff & permissions","Accounts are created by staff using the sign-up form. You approve their roles here.")
- +'<div class="notice"><strong>Privacy boundary:</strong> SAMS website owners and staff do not have access to confidential client case files in this pilot. All users must verify Microsoft Authenticator before performing protected actions.</div>'
- +'<div class="table-wrap"><table><thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Change access</th></tr></thead><tbody>'+list.map(x=>'<tr><td><strong>'+E(x.display_name||"Staff member")+'</strong><br><small>'+E(x.user_id.slice(0,8))+'…</small></td><td><span class="badge">'+E(roleLabel[x.role]||x.role)+'</span></td><td>'+ (x.active?"Enabled":"Suspended")+'</td><td>'+(x.role==="owner"?'<small>Protected owner account</small>':'<form class="form" data-form="member-access" data-id="'+E(x.user_id)+'"><label>Role<select name="role">'+["pending","owner","admin","staff","intake","support","peer","partnerships"].map(v=>'<option value="'+v+'" '+(x.role===v?"selected":"")+'>'+E(roleLabel[v])+'</option>').join("")+'</select></label><label><input name="active" type="checkbox" '+(x.active?"checked":"")+'> Enabled</label><button class="btn btn-small">Save access</button></form>')+'</td></tr>').join("")+'</tbody></table></div>');
+ panel(title("STAFF MANAGEMENT","Manage SAMS staff","Create individual staff invitations, choose account types, roles and detailed permissions.")
+  +'<div class="panel"><h3>Invite people and manage their access</h3><p>You can choose what work each person is allowed to do. The confidential client-file functions remain locked until that system is approved.</p><a class="btn btn-terracotta" href="staff-management.html">Manage staff accounts and invitations ↗</a></div>'
+  +'<div class="notice">Workers must register with their invited, verified email address and set up Microsoft Authenticator before their permissions become active. No passwords are sent in invitation links.</div>');
 }
-
 async function audit(){
  if(!can("owner"))return;
  const events=must(await sb.rpc("sams_recent_audit_events"));
